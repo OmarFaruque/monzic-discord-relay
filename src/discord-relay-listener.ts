@@ -106,6 +106,7 @@ function shouldRelayMessage(message: Message): boolean {
   }
 
   if (supportRoleId) {
+    console.log('check support role')
     return message.member?.roles.cache.has(supportRoleId) ?? false;
   }
 
@@ -149,7 +150,7 @@ client.once(Events.ClientReady, (readyClient) => {
 });
 
 client.on(Events.MessageCreate, async (message) => {
-  console.log(`[discord-relay] Received message ${message.id} in channel ${message.channelId} from ${message.author.tag}`);
+  console.log('[discord-relay] Message received:', message);
   if (!shouldRelayMessage(message)) return;
 
   try {
