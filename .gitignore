@@ -1,6 +1,11 @@
 # dependencies
 node_modules/
 
+# environment secrets
+.env
+.env.*
+!.env.example
+
 # logs
 *.log
 logs/
