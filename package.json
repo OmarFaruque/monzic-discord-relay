@@ -1,0 +1,20 @@
+{
+  "name": "monzic-discord-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Discord relay listener for Monzic tickets",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/discord-relay-listener.ts",
+    "dev": "tsx watch src/discord-relay-listener.ts"
+  },
+  "packageManager": "pnpm@10.26.1",
+  "dependencies": {
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.3",
+    "typescript": "^5.6.3"
+  }
+}

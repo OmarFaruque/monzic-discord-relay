@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# environment secrets
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+logs/
+
+# build/cache
+dist/
+build/
+coverage/
+.nyc_output/
+.tmp/
+.temp/
+.cache/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
