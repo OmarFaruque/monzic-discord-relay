@@ -76,6 +76,7 @@ const supportRoleId = process.env.DISCORD_SUPPORT_ROLE_ID;
 
 const relayRoutes = parseRelayRoutes();
 const relayRouteMap = new Map(relayRoutes.map((route) => [route.categoryId, route.baseUrl]));
+const ticketIdByChannelId = new Map<string, string>();
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers],
@@ -89,6 +90,29 @@ function getRelayBaseUrl(message: Message): string | null {
   if (!parentCategoryId) return null;
 
   return relayRouteMap.get(parentCategoryId) ?? null;
+}
+
+function parseTicketId(text: string): string | null {
+  const match = text.match(/\*\*Ticket #(\d+)\*\*/i);
+  return match?.[1] ?? null;
+}
+
+async function resolveTicketId(message: Message): Promise<string | null> {
+  const cached = ticketIdByChannelId.get(message.channel.id);
+  if (cached) return cached;
+
+  if (message.channel.type !== ChannelType.GuildText) return null;
+
+  const recentMessages = await message.channel.messages.fetch({ limit: 50 });
+  for (const recentMessage of recentMessages.values()) {
+    const ticketId = parseTicketId(recentMessage.content);
+    if (!ticketId) continue;
+
+    ticketIdByChannelId.set(message.channel.id, ticketId);
+    return ticketId;
+  }
+
+  return null;
 }
 
 async function shouldRelayMessage(message: Message): Promise<boolean> {
@@ -134,6 +158,7 @@ async function relayToApp(message: Message): Promise<void> {
 
   const content = message.content.trim();
   const attachments = [...message.attachments.values()].map((attachment) => attachment.url);
+  const ticketId = await resolveTicketId(message);
 
   if (!content && attachments.length === 0) return;
 
@@ -145,6 +170,7 @@ async function relayToApp(message: Message): Promise<void> {
     },
     body: JSON.stringify({
       channelId: message.channel.id,
+      ticketId,
       message: content || "(attachment only)",
       attachments,
     }),
@@ -154,8 +180,6 @@ async function relayToApp(message: Message): Promise<void> {
     console.error(`[discord-relay] Relay error (${response.status}):`, await response.text());
     const body = await response.text();
     throw new Error(`Relay failed (${response.status}): ${body}`);
-  }else{
-    console.log(`[discord-relay] Successfully relayed message ${message.id} from channel ${message.channel.id}`);
   }
 }
 
