@@ -92,9 +92,18 @@ function getRelayBaseUrl(message: Message): string | null {
 }
 
 function shouldRelayMessage(message: Message): boolean {
-  if (message.author.bot || !message.guild) return false;
-  if (message.channel.type !== ChannelType.GuildText) return false;
-  if (!getRelayBaseUrl(message)) return false;
+  if (message.author.bot || !message.guild){
+    console.log('check author bot')
+    return false;
+  }
+  if (message.channel.type !== ChannelType.GuildText){
+     console.log('check channel type')
+     return false;
+  }
+  if (!getRelayBaseUrl(message)) {
+    console.log('check relay base url')
+    return false;
+  }
 
   if (supportRoleId) {
     return message.member?.roles.cache.has(supportRoleId) ?? false;
