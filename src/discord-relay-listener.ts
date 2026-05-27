@@ -126,8 +126,11 @@ async function relayToApp(message: Message): Promise<void> {
   });
 
   if (!response.ok) {
+    console.error(`[discord-relay] Relay error (${response.status}):`, await response.text());
     const body = await response.text();
     throw new Error(`Relay failed (${response.status}): ${body}`);
+  }else{
+    console.log(`[discord-relay] Successfully relayed message ${message.id} from channel ${message.channel.id}`);
   }
 }
 
