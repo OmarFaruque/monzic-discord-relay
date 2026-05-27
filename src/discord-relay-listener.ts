@@ -149,6 +149,7 @@ client.once(Events.ClientReady, (readyClient) => {
 });
 
 client.on(Events.MessageCreate, async (message) => {
+  console.log(`[discord-relay] Received message ${message.id} in channel ${message.channelId} from ${message.author.tag}`);
   if (!shouldRelayMessage(message)) return;
 
   try {
