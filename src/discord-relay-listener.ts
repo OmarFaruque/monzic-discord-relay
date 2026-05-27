@@ -16,21 +16,85 @@ function requireEnv(name: string): string {
   return value;
 }
 
+
+type RelayRoute = {
+  categoryId: string;
+  baseUrl: string;
+};
+
+function parseRelayRoutes(): RelayRoute[] {
+  const routesRaw = process.env.DISCORD_RELAY_ROUTES;
+  if (routesRaw) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(routesRaw);
+    } catch {
+      throw new Error(
+        "Invalid DISCORD_RELAY_ROUTES format. Expected JSON array, e.g. [{\"categoryId\":\"...\",\"baseUrl\":\"https://site\"}]",
+      );
+    }
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error("DISCORD_RELAY_ROUTES must be a non-empty JSON array.");
+    }
+
+    return parsed.map((item, index) => {
+      if (!item || typeof item !== "object") {
+        throw new Error(`DISCORD_RELAY_ROUTES[${index}] must be an object.`);
+      }
+
+      const categoryId = (item as { categoryId?: unknown }).categoryId;
+      const baseUrl = (item as { baseUrl?: unknown }).baseUrl;
+
+      if (typeof categoryId !== "string" || !categoryId.trim()) {
+        throw new Error(`DISCORD_RELAY_ROUTES[${index}].categoryId must be a non-empty string.`);
+      }
+
+      if (typeof baseUrl !== "string" || !baseUrl.trim()) {
+        throw new Error(`DISCORD_RELAY_ROUTES[${index}].baseUrl must be a non-empty string.`);
+      }
+
+      return {
+        categoryId: categoryId.trim(),
+        baseUrl: baseUrl.trim(),
+      };
+    });
+  }
+
+  const legacyCategoryId = requireEnv("DISCORD_TICKET_CATEGORY_ID");
+  const legacyBaseUrl = requireEnv("DISCORD_RELAY_BASE_URL");
+
+  return [{
+    categoryId: legacyCategoryId,
+    baseUrl: legacyBaseUrl,
+  }];
+}
+
 const botToken = requireEnv("DISCORD_BOT_TOKEN");
 const relayApiKey = requireEnv("DISCORD_RELAY_API_KEY");
-const relayBaseUrl = requireEnv("DISCORD_RELAY_BASE_URL");
-const ticketCategoryId = requireEnv("DISCORD_TICKET_CATEGORY_ID");
 const supportRoleId = process.env.DISCORD_SUPPORT_ROLE_ID;
+
+const relayRoutes = parseRelayRoutes();
+const relayRouteMap = new Map(relayRoutes.map((route) => [route.categoryId, route.baseUrl]));
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
   partials: [Partials.Channel],
 });
 
+
+function getRelayBaseUrl(message: Message): string | null {
+  if (message.channel.type !== ChannelType.GuildText) return null;
+  const parentCategoryId = message.channel.parentId;
+  if (!parentCategoryId) return null;
+
+  return relayRouteMap.get(parentCategoryId) ?? null;
+}
+
 function shouldRelayMessage(message: Message): boolean {
   if (message.author.bot || !message.guild) return false;
   if (message.channel.type !== ChannelType.GuildText) return false;
-  if (message.channel.parentId !== ticketCategoryId) return false;
+  if (!getRelayBaseUrl(message)) return false;
 
   if (supportRoleId) {
     return message.member?.roles.cache.has(supportRoleId) ?? false;
@@ -40,6 +104,9 @@ function shouldRelayMessage(message: Message): boolean {
 }
 
 async function relayToApp(message: Message): Promise<void> {
+  const relayBaseUrl = getRelayBaseUrl(message);
+  if (!relayBaseUrl) return;
+
   const content = message.content.trim();
   const attachments = [...message.attachments.values()].map((attachment) => attachment.url);
 
@@ -66,6 +133,7 @@ async function relayToApp(message: Message): Promise<void> {
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`[discord-relay] Ready as ${readyClient.user.tag}`);
+  console.log(`[discord-relay] Loaded ${relayRouteMap.size} relay route(s).`);
 });
 
 client.on(Events.MessageCreate, async (message) => {
