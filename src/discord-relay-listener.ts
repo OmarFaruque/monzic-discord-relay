@@ -91,23 +91,38 @@ function getRelayBaseUrl(message: Message): string | null {
   return relayRouteMap.get(parentCategoryId) ?? null;
 }
 
-function shouldRelayMessage(message: Message): boolean {
-  if (message.author.bot || !message.guild){
-    console.log('check author bot')
+async function shouldRelayMessage(message: Message): Promise<boolean> {
+  if (message.author.bot || !message.guild) {
+    console.log("[relay-check] skip: bot or no guild");
     return false;
   }
-  if (message.channel.type !== ChannelType.GuildText){
-     console.log('check channel type')
-     return false;
+
+  if (message.channel.type !== ChannelType.GuildText) {
+    console.log("[relay-check] skip: not GuildText, type =", message.channel.type);
+    return false;
   }
+
   if (!getRelayBaseUrl(message)) {
-    console.log('check relay base url')
+    console.log("[relay-check] skip: no relay route for parent category");
     return false;
   }
 
   if (supportRoleId) {
-    console.log('check support role')
-    return message.member?.roles.cache.has(supportRoleId) ?? false;
+    let member = message.member;
+    if (!member) {
+      try {
+        member = await message.guild.members.fetch(message.author.id);
+      } catch (e) {
+        console.log("[relay-check] skip: failed to fetch member", e);
+        return false;
+      }
+    }
+
+    const hasRole = member.roles.cache.has(supportRoleId);
+    if (!hasRole) {
+      console.log("[relay-check] skip: support role not found on member");
+    }
+    return hasRole;
   }
 
   return true;
@@ -151,7 +166,7 @@ client.once(Events.ClientReady, (readyClient) => {
 
 client.on(Events.MessageCreate, async (message) => {
   console.log('[discord-relay] Message received:', message);
-  if (!shouldRelayMessage(message)) return;
+  if (!(await shouldRelayMessage(message))) return;
 
   try {
     await relayToApp(message);
